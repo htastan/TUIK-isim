@@ -1,0 +1,329 @@
+---
+title: "Popüler İsimler: 2021 verileri"
+subtitle:    
+author: 
+  name: "Prof. Dr. Hüseyin Taştan"
+  affiliation: "Yildiz Technical University"
+date: ""
+output:
+  html_document: 
+    number_sections: true
+    theme: lumen
+    highlight: haddock 
+    # code_folding: show
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    keep_md: false 
+---
+<style type="text/css"> 
+body{
+  background-color: #FAFAFA;
+  font-size: 18px;
+  line-height: 1.8; 
+}
+code.r{
+  font-size: 12pt;
+}
+</style>
+
+```{r setup, include=FALSE}
+# knitr::opts_chunk$set(echo = TRUE, results = 'asis', fig.show = 'asis')
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+``` 
+
+<br/>
+<br/>
+
+
+
+
+# TÜİK popüler bebek isimleri veri seti
+
+## Verilerin okutulması 
+
+Türkiye İstatistik Kurumu (TÜİK) her yıl en popüler 100 kadın ve erkek ismini yayınlamaktadır. Veri seti o yılda yeni doğanlara verilen en popüler isimleri içermektedir. Bu veri setini TÜİK sitesinden indirip bir excel dosyası içinde kaydettik. Bu `isim_E_2021.xls` dosyasında `A4:AT314` aralığında yer almaktadır. Verileri okutalım: 
+
+```{r}
+library(tidyverse)
+library(readxl)
+isimler_E <- read_excel("isim_E_2021.xls", range = "A4:AT314")
+# View(isimler_E) 
+```
+
+Bu dosyada ilk sütunda isimler diğer sütunlarda ilgili yıldaki ismin sırası yer almaktadır. Veriler geniş formattadır. 
+
+```{r}
+# ilk sütun ...1 olarak isimlendirildi. Bunu değiştirelim
+isimler_E_genis <- rename(isimler_E, "isim"="...1")
+```
+
+```{r}
+# the data is in wide format 
+# convert it to long
+isimler_E_uzun <- isimler_E_genis %>% 
+  pivot_longer(-isim, names_to="year", values_to = "rank") %>% 
+  mutate(gender = "Erkek")
+```
+
+Verilerin ilk 10 satırına bakalım:  
+```{r}
+#
+isimler_E_uzun %>% 
+  arrange(year, isim) %>% 
+  head(10)
+```
+
+Bu işlemleri tek adımda da yapabiliriz. Popüler erkek ve kadın isimlerini içeren tek bir dosya oluşturalım: 
+```{r}
+male <- read_excel("isim_E_2021.xls", range = "A4:AT314") %>% 
+  rename("name"="...1") %>% 
+  pivot_longer(-name, names_to="year", values_to = "rank") %>% 
+  mutate(gender = "Male",
+         year = as.numeric(year))
+
+female <- read_excel("isim_K_2021.xls", range = "A4:AT354") %>% 
+  rename("name"="...1") %>% 
+  pivot_longer(-name, names_to="year", values_to = "rank") %>% 
+  mutate(gender = "Female",
+         year = as.numeric(year))
+```
+
+Hem erkek hem de kadın isimlerini içeren tek dosya: 
+```{r}
+isimler <- bind_rows(male, female)
+```
+
+```{r}
+# popüler erkek isimleri 2021 yılı ilk 10
+isimler %>% 
+  filter(gender=="Male", year==2021, rank<11) %>% 
+  arrange(rank)
+```
+
+```{r}
+# popüler kadın isimleri 2021 yılı ilk 10
+isimler %>% 
+  filter(gender=="Female", year==2021, rank<11) %>% 
+  arrange(rank)
+```
+
+## Bir ismin zaman içindeki popülerliği
+```{r}
+# spesifik bir ismin zaman seyri
+isimler %>% 
+  filter(name == "Yusuf", year>2010) %>%
+  ggplot(aes(x = year, y = rank, group=name, color=name)) +
+  geom_point(size = 4) +
+  geom_line(size = 0.5) +
+  scale_y_reverse(breaks = 1:10) +
+  scale_x_continuous(breaks = 2011:2021) +
+  geom_text(data = filter(isimler, name=="Yusuf", year==2021),
+            aes(label = name, x=2021.75), fontface = "bold") +
+  guides(color = FALSE) +
+  scale_color_viridis_d(option = "magma", begin = 0.2, end = 0.9) +
+  labs(x = NULL, y = "Sıra") +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank())
+```
+
+```{r}
+# 2021 yılında ilk 10'da olan isimlerin 2011-2021 sıralaması
+# Erkek isimleri
+# önce top-10 isimlerin yer aldığı bir vektör oluşturalım
+top10e <- isimler %>% 
+  filter(gender=="Male", year==2021, rank<11) %>% 
+  pull(name)
+```
+
+
+```{r}
+# 2010-2021 arasında 2021 top10 isimlerin seyrini gösteren tablo oluştur
+df <- isimler %>% 
+  filter(gender == "Male") %>%
+  filter(rank < 11, year>2010) %>%
+  filter(name %in% top10e)
+head(df, 10)
+```
+
+
+```{r}
+# grafiği çiz
+df %>%
+  ggplot(aes(x = year, y = rank, group = name, color=name)) +
+  geom_point(size = 4) +
+  geom_line(size = 1) +
+  scale_y_reverse(breaks = 1:10) +
+  scale_x_continuous(breaks = 2011:2021) +
+  guides(color = FALSE) +
+  geom_text(data = filter(df, year==2021),
+            aes(label = name, x=2021.75), fontface = "bold") +
+  scale_color_viridis_d(option = "magma", begin = 0.2, end = 0.9) +
+  labs(x = NULL, y = "Sıra") +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank())
+```
+
+```{r}
+# 2011-2021 top10 tüm isimler
+top10e2 <- isimler %>%
+  filter(year>2010, rank<11) %>%
+  filter(gender == "Male") %>%
+  pull(name) %>%
+  unique()
+# bu isimleri ekrana yaz
+top10e2
+```
+
+
+```{r}
+# tablo oluştur
+df3 <- isimler %>% 
+  filter(gender == "Male") %>%
+  filter(rank < 11, year>2010) %>%
+  filter(name %in% top10e2)
+
+head(df3, 10)
+```
+
+
+```{r}
+# grafiği çiz
+df3 %>%
+  ggplot(aes(x = year, y = rank, group = name, color=name)) +
+  geom_point(size = 4) +
+  geom_line(size = 1) +
+  scale_y_reverse(breaks = 1:10) +
+  scale_x_continuous(breaks = 2011:2021) +
+  guides(color = FALSE) +
+  geom_text(data = filter(df3, year>2010),
+            aes(label = name), nudge_y = 0.4, size = 3) +
+  scale_color_viridis_d(option = "inferno", begin = 0.2, end = 0.9) +
+  labs(x = NULL, y = "Sıra") +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank())
+```
+
+Tüm noktalarda etiket koymak tekrara neden olsa da sıralamaya girip çıkan isimleri görmeyi kolaylaştırıyor. 
+```{r}
+# aynı grafik kadınlar için
+top10k2 <- isimler %>%
+  filter(year>2010, gender == "Female", rank<11) %>%
+  pull(name) %>%
+  unique()
+top10k2
+```
+
+
+```{r}
+df4 <- isimler %>% 
+  filter(year>2010, gender == "Female", rank<11) %>% 
+  filter(name %in% top10k2)
+df4
+```
+
+
+```{r}
+df4 %>%
+  ggplot(aes(x = year, y = rank, group = name, color=name)) +
+  geom_point(size = 4) +
+  geom_line(size = 1) +
+  scale_y_reverse(breaks = 1:10) +
+  scale_x_continuous(breaks = 2011:2021) +
+  guides(color = FALSE) +
+  geom_text(data = filter(df4, year>2010),
+            aes(label = name), nudge_y = 0.4, size = 3) +
+  scale_color_viridis_d(option = "inferno", begin = 0.2, end = 0.9) +
+  labs(x = NULL, y = "Sıra") +
+  theme_minimal() +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank())
+```
+
+## Verilmiş bir ismin popülerliğine ilişkin fonksiyon
+
+```{r}
+# verilmiş bir ismin popülerlik grafiğini çizen bir fonksiyon
+# input = ad, output = grafik
+
+isim_sira_ciz <- function(ad) {
+  isimler %>% 
+    filter(name == ad) %>%
+    ggplot(aes(x = year, y = rank, group=name, color=name)) +
+    geom_point(size = 2) +
+    geom_line(size = 0.5) +
+    scale_y_reverse(breaks = seq(1,100,5)) +
+    scale_x_continuous(breaks = seq(1950, 2020, 10)) +
+    geom_text(data = filter(isimler, name==ad, year==2021),
+              aes(label = name, x=2021.95), nudge_x = 2, fontface = "bold") +
+    guides(color = FALSE) +
+    scale_color_viridis_d(option = "magma", begin = 0.2, end = 0.9) +
+    labs(x = NULL, y = "Sıra") +
+    theme_minimal() +
+    theme(panel.grid.major.y = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          panel.grid.minor.x = element_blank())
+}
+
+# örnek
+isim_sira_ciz("Yusuf")
+```
+
+```{r}
+# çoklu isimler: yukarıdaki fonksiyon tek isim kabul ediyordu
+# fonksiyonu bir karakter vektörü kabul edecek şekilde geliştirebiliriz
+library(ggrepel)  # text eklemeyi kolaylaştıran fonksiyon
+
+# fonksiyon
+
+isim_sira_ciz2 <- function(ad) {
+  df <- isimler %>% 
+    filter(name %in% ad)
+
+  df %>%
+    ggplot(aes(x = year, y = rank, group = name, color=name)) +
+    geom_point(size = 2) +
+    geom_line(size = 1) +
+    scale_y_reverse(breaks = seq(1,100,5)) +
+    scale_x_continuous(breaks = seq(1950, 2020, 10)) +
+    guides(color = FALSE) +
+    geom_text_repel(data = filter(df, !is.na(rank)) %>%
+                      group_by(name) %>% filter(year==max(year)),
+              aes(label = name, year), size = 3) +
+    geom_text_repel(data = filter(df, !is.na(rank)) %>%
+                      group_by(name) %>% filter(year==min(year)),
+                    aes(label = name, year), size = 3) +
+    scale_color_viridis_d(option = "inferno", begin = 0.2, end = 0.9) +
+    labs(x = NULL, y = "Sıra") +
+    theme_minimal() +
+    theme(panel.grid.major.y = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          panel.grid.minor.x = element_blank())
+
+}
+```
+
+
+```{r}
+# örnek
+isim_sira_ciz2(c("Zeynep", "Elif", "Azra", "Rukiye"))
+```
+
+
+```{r}
+# örnek
+isim_sira_ciz2(c("Hasan", "Hüseyin", "Mehmet", "Muhammed", "Yusuf"))
+```
+
+
+
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
+
