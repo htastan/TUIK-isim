@@ -3,6 +3,10 @@ Türkiye İstatistik Kurumu (TÜİK) tarafından açıklanan popüler bebek isim
 
 Eğitim amacıyla hazırlanmıştır. 
 
+HTML dosyasını görüntülemek için bkz. 
+
+<https://htastan.github.io/TUIK-isim/populer-isimler-2021.html>
+
 
 
 
